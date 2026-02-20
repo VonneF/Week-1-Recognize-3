@@ -1,0 +1,529 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Heart, 
+  Play, 
+  Pause, 
+  Download, 
+  Brain, 
+  User, 
+  Zap, 
+  Info, 
+  CheckCircle,
+  Clock,
+  MessageCircle,
+  ChevronRight,
+  BookOpen,
+  Save
+} from 'lucide-react';
+
+// External Library for PDF generation
+const loadScript = (src) => {
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.head.appendChild(script);
+  });
+};
+
+const App = () => {
+  const [activeTab, setActiveTab] = useState('intro');
+  const [scriptsLoaded, setScriptsLoaded] = useState(false);
+  const [formData, setFormData] = useState({
+    selectedScript: '',
+    scriptReasoning: '',
+    audit: [
+      { moment: 'When something went wrong', thought: '', feeling: '' },
+      { moment: 'When I received a compliment', thought: '', feeling: '' },
+      { moment: 'When making a decision', thought: '', feeling: '' }
+    ],
+    bodyTension: '',
+    tensionRemindsMeOf: '',
+    intentionNotice: '',
+    intentionCommit: '',
+    audioQ1: '',
+    audioQ2: '',
+    audioQ3: '',
+    audioQ4: '',
+    audioQ5: '',
+    emotions: []
+  });
+
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').then((res) => {
+      setScriptsLoaded(res);
+    });
+  }, []);
+
+  const scarcityScripts = [
+    {
+      id: 'lack-loop',
+      title: 'The Lack Loop',
+      quotes: '"There\'s never enough." / "I can\'t afford to..." / "Other people have it easier."',
+      description: 'This script scans for what is missing. It is hypervigilant to loss and blind to what is present.'
+    },
+    {
+      id: 'unworthiness-whisper',
+      title: 'The Unworthiness Whisper',
+      quotes: '"Who am I to want this?" / "I don\'t deserve good things." / "I should be grateful for what I have."',
+      description: 'This script contracts you before you even take action. It teaches you to shrink as a form of safety.'
+    },
+    {
+      id: 'bracing-stance',
+      title: 'The Bracing Stance',
+      quotes: '"Something will go wrong." / "I shouldn\'t get too excited." / "This is too good to last."',
+      description: 'This script keeps your nervous system in low-grade fight-or-flight, preparing for impact.'
+    }
+  ];
+
+  const emotionTags = [
+    'Anxious', 'Heavy', 'Restless', 'Tight', 'Sad', 'Numb', 'Guilty', 'Frustrated', 'Worthy', 'Calm', 'Observant', 'Soft'
+  ];
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAuditChange = (index, field, value) => {
+    const newAudit = [...formData.audit];
+    newAudit[index][field] = value;
+    setFormData(prev => ({ ...prev, audit: newAudit }));
+  };
+
+  const toggleEmotion = (emotion) => {
+    setFormData(prev => ({
+      ...prev,
+      emotions: prev.emotions.includes(emotion)
+        ? prev.emotions.filter(e => e !== emotion)
+        : [...prev.emotions, emotion]
+    }));
+  };
+
+  const generatePDF = () => {
+    if (!scriptsLoaded) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(22);
+    doc.setTextColor(40, 40, 40);
+    doc.text("WEEK 1 WORKBOOK: RECOGNIZE", 20, 20);
+    
+    doc.setFontSize(12);
+    doc.text(`Progress Snapshot: ${new Date().toLocaleDateString()}`, 20, 30);
+    doc.line(20, 35, 190, 35);
+
+    // Section 1: Selected Script
+    doc.setFontSize(14);
+    doc.text("1. Primary Scarcity Script", 20, 45);
+    doc.setFontSize(11);
+    const selectedScriptObj = scarcityScripts.find(s => s.id === formData.selectedScript);
+    doc.text(`Script: ${selectedScriptObj ? selectedScriptObj.title : 'Not selected yet'}`, 20, 52);
+    doc.text("Why this resonates:", 20, 60);
+    const reasonLines = doc.splitTextToSize(formData.scriptReasoning || "(No entry yet)", 160);
+    doc.text(reasonLines, 20, 67);
+
+    // Section 2: Audit
+    let y = 90;
+    doc.setFontSize(14);
+    doc.text("2. Inner Critic Audit", 20, y);
+    y += 10;
+    formData.audit.forEach((item) => {
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(item.moment, 20, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Thought: ${item.thought || 'N/A'}`, 25, y + 7);
+      doc.text(`Body Feeling: ${item.feeling || 'N/A'}`, 25, y + 14);
+      y += 25;
+    });
+
+    // Section 3: Body
+    doc.addPage();
+    y = 20;
+    doc.setFontSize(14);
+    doc.text("3. Body-Based Check-in", 20, y);
+    doc.setFontSize(11);
+    doc.text(`Tension/Heaviness in: ${formData.bodyTension || 'Not specified'}`, 20, y + 10);
+    doc.text("Reminds me of:", 20, y + 20);
+    const bodyLines = doc.splitTextToSize(formData.tensionRemindsMeOf || "N/A", 160);
+    doc.text(bodyLines, 20, y + 27);
+
+    // Audio Reflections
+    y += 50;
+    doc.setFontSize(14);
+    doc.text("4. Audio Practice Reflections", 20, y);
+    doc.setFontSize(10);
+    doc.text("Q1: First thought during practice?", 20, y + 10);
+    doc.text(doc.splitTextToSize(formData.audioQ1 || "N/A", 160), 25, y + 17);
+    
+    // Page 3 if needed
+    doc.addPage();
+    y = 20;
+    doc.setFontSize(11);
+    doc.text("Q2: Sensations when touching chest?", 20, y);
+    doc.text(doc.splitTextToSize(formData.audioQ2 || "N/A", 160), 25, y + 7);
+    
+    y += 30;
+    doc.text("Q3: Scarcity script running?", 20, y);
+    doc.text(doc.splitTextToSize(formData.audioQ3 || "N/A", 160), 25, y + 7);
+
+    // Section 4: Intentions
+    y += 40;
+    doc.setFontSize(14);
+    doc.text("5. Weekly Intentions", 20, y);
+    doc.setFontSize(11);
+    doc.text("I am willing to notice:", 20, y + 10);
+    doc.text(doc.splitTextToSize(formData.intentionNotice || "N/A", 160), 20, y + 17);
+    doc.text("I commit to observing without judgment when:", 20, y + 35);
+    doc.text(doc.splitTextToSize(formData.intentionCommit || "N/A", 160), 20, y + 42);
+
+    doc.save(`Week1_Progress_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  return (
+    <div className="min-h-screen bg-stone-50 text-stone-800 font-sans p-4 md:p-8">
+      <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-stone-200">
+        
+        {/* Header */}
+        <header className="bg-stone-900 text-white p-8 md:p-12 relative overflow-hidden">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <h1 className="text-3xl md:text-5xl font-serif mb-4">Week 1: Recognize</h1>
+              <p className="text-stone-400 text-lg italic max-w-xl">
+                "You cannot change what you cannot see. This week, we simply look."
+              </p>
+            </div>
+            <button 
+              onClick={generatePDF}
+              disabled={!scriptsLoaded}
+              className="flex items-center gap-2 px-6 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl transition-all shadow-lg text-sm font-bold uppercase tracking-wider disabled:opacity-50"
+            >
+              <Download size={18} />
+              {scriptsLoaded ? "Download Progress" : "Loading..."}
+            </button>
+          </div>
+          <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-stone-800 rounded-full opacity-50 blur-3xl"></div>
+        </header>
+
+        {/* Navigation */}
+        <nav className="flex overflow-x-auto border-b border-stone-200 bg-white sticky top-0 z-20 shadow-sm">
+          {[
+            { id: 'intro', label: 'Understand', icon: Info },
+            { id: 'scripts', label: 'Scripts', icon: Zap },
+            { id: 'audit', label: 'Audit', icon: Brain },
+            { id: 'audio', label: 'Practice', icon: Play },
+            { id: 'reflection', label: 'Reflect', icon: BookOpen }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-6 py-5 text-sm font-bold uppercase tracking-tight transition-all whitespace-nowrap border-b-4 ${
+                activeTab === tab.id 
+                  ? 'border-rose-500 text-stone-900 bg-stone-50' 
+                  : 'border-transparent text-stone-400 hover:text-stone-600'
+              }`}
+            >
+              <tab.icon size={16} />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Content Area */}
+        <main className="p-8 md:p-12 min-h-[500px]">
+          
+          {/* INTRO TAB */}
+          {activeTab === 'intro' && (
+            <div className="space-y-8 animate-in fade-in duration-500">
+              <section className="prose prose-stone max-w-none">
+                <h2 className="text-2xl font-serif mb-6 flex items-center gap-2">
+                  <Heart className="text-rose-400" size={24} /> 
+                  What Is Scarcity Thinking?
+                </h2>
+                <p className="text-lg leading-relaxed text-stone-600">
+                  Scarcity thinking is the inner operating system that tells you there is never enough — 
+                  not enough time, love, money, success, safety, or worth. 
+                  <span className="bg-rose-50 px-1 ml-1 font-semibold text-rose-700">It's not your fault.</span> 
+                  This pattern was built by your nervous system as a protection mechanism.
+                </p>
+                <div className="bg-stone-50 border-l-4 border-stone-300 p-6 my-8 rounded-r-xl">
+                  <p className="italic text-stone-600">
+                    "Scarcity shows up in your inner dialogue as a low hum of worry, a harsh inner critic, 
+                    or a constant bracing for things to go wrong. This week, we become the observer — 
+                    no judgment, just noticing."
+                  </p>
+                </div>
+              </section>
+              <button 
+                onClick={() => setActiveTab('scripts')}
+                className="mt-8 flex items-center gap-2 px-6 py-3 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-all shadow-lg"
+              >
+                Next Step: Identify Your Scripts <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
+
+          {/* SCRIPTS TAB */}
+          {activeTab === 'scripts' && (
+            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div>
+                <h2 className="text-2xl font-serif mb-2">The 3 Core Scarcity Scripts</h2>
+                <p className="text-stone-500 mb-8">Click on the script that feels most familiar to your inner experience.</p>
+                
+                <div className="grid md:grid-cols-3 gap-6">
+                  {scarcityScripts.map((script) => (
+                    <button
+                      key={script.id}
+                      onClick={() => handleInputChange('selectedScript', script.id)}
+                      className={`p-6 rounded-2xl text-left transition-all border-2 ${
+                        formData.selectedScript === script.id
+                          ? 'border-stone-900 bg-stone-900 text-white scale-[1.02] shadow-xl'
+                          : 'border-stone-100 bg-white hover:border-stone-300 shadow-sm'
+                      }`}
+                    >
+                      <h3 className={`font-serif text-lg mb-3 ${formData.selectedScript === script.id ? 'text-white' : 'text-stone-900'}`}>
+                        {script.title}
+                      </h3>
+                      <p className={`text-sm italic mb-4 ${formData.selectedScript === script.id ? 'text-stone-300' : 'text-stone-500'}`}>
+                        {script.quotes}
+                      </p>
+                      <p className={`text-sm leading-relaxed ${formData.selectedScript === script.id ? 'text-stone-400' : 'text-stone-600'}`}>
+                        {script.description}
+                      </p>
+                      {formData.selectedScript === script.id && (
+                        <div className="mt-4 flex justify-end">
+                          <CheckCircle size={20} className="text-white" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {formData.selectedScript && (
+                <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 animate-in zoom-in-95">
+                  <label className="block text-sm font-bold uppercase tracking-widest text-stone-500 mb-4">
+                    The script I recognize most in myself is... because...
+                  </label>
+                  <textarea
+                    className="w-full bg-white border border-stone-200 rounded-xl p-4 min-h-[120px] focus:ring-2 focus:ring-stone-400 focus:outline-none"
+                    placeholder="Share your thoughts here..."
+                    value={formData.scriptReasoning}
+                    onChange={(e) => handleInputChange('scriptReasoning', e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AUDIT TAB */}
+          {activeTab === 'audit' && (
+            <div className="space-y-10 animate-in fade-in duration-500">
+              <div>
+                <h2 className="text-2xl font-serif mb-2">Exercise 2: The Inner Critic Audit</h2>
+                <p className="text-stone-500 mb-8">Notice your self-talk in these 3 specific moments. Write what you hear and how it feels.</p>
+
+                <div className="space-y-6">
+                  {formData.audit.map((item, index) => (
+                    <div key={index} className="grid md:grid-cols-3 gap-4 items-start p-6 bg-stone-50 rounded-2xl border border-stone-100">
+                      <div className="pt-2">
+                        <span className="text-xs font-bold uppercase tracking-widest text-stone-400 block mb-1">Moment</span>
+                        <h4 className="font-serif text-lg">{item.moment}</h4>
+                      </div>
+                      <div className="space-y-4 md:col-span-2">
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-widest text-stone-400 mb-1">What my inner voice said</label>
+                          <input 
+                            type="text"
+                            value={item.thought}
+                            onChange={(e) => handleAuditChange(index, 'thought', e.target.value)}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-3 focus:ring-2 focus:ring-stone-400 outline-none"
+                            placeholder="e.g. 'I knew I'd mess this up'..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-widest text-stone-400 mb-1">How my body felt</label>
+                          <input 
+                            type="text"
+                            value={item.feeling}
+                            onChange={(e) => handleAuditChange(index, 'feeling', e.target.value)}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-3 focus:ring-2 focus:ring-stone-400 outline-none"
+                            placeholder="e.g. Tightness in chest, shallow breath..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-stone-900 text-white p-8 rounded-2xl shadow-xl">
+                <h3 className="text-xl font-serif mb-4 flex items-center gap-2">
+                  <User size={20} className="text-rose-300" />
+                  Body-Based Scarcity Check-In
+                </h3>
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <label className="block text-sm text-stone-400 uppercase tracking-widest">Where does 'not enough' live in me right now?</label>
+                    <textarea 
+                      className="w-full bg-stone-800 border border-stone-700 rounded-xl p-4 text-white focus:ring-2 focus:ring-rose-300 outline-none"
+                      placeholder="I notice tension / heaviness in..."
+                      value={formData.bodyTension}
+                      onChange={(e) => handleInputChange('bodyTension', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <label className="block text-sm text-stone-400 uppercase tracking-widest">When I sit with this, it reminds me of...</label>
+                    <textarea 
+                      className="w-full bg-stone-800 border border-stone-700 rounded-xl p-4 text-white focus:ring-2 focus:ring-rose-300 outline-none"
+                      placeholder="Share what comes up..."
+                      value={formData.tensionRemindsMeOf}
+                      onChange={(e) => handleInputChange('tensionRemindsMeOf', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* AUDIO TAB */}
+          {activeTab === 'audio' && (
+            <div className="space-y-10 animate-in fade-in duration-500">
+              <div className="flex flex-col md:flex-row gap-8 items-center bg-rose-50 p-8 rounded-3xl border border-rose-100">
+                <div className="flex-shrink-0">
+                  <button 
+                    onClick={() => setIsPlaying(!isPlaying)}
+                    className="w-20 h-20 rounded-full bg-stone-900 text-white flex items-center justify-center hover:scale-105 transition-all shadow-xl shadow-stone-200"
+                  >
+                    {isPlaying ? <Pause size={32} /> : <Play size={32} className="ml-1" />}
+                  </button>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-serif mb-1">Audio Practice: "The Observer"</h2>
+                  <p className="text-stone-500 mb-4 flex items-center gap-2">
+                    <Clock size={16} /> Estimated: 12-15 minutes
+                  </p>
+                  <p className="text-stone-600 italic">
+                    {isPlaying 
+                      ? "Listening... (Simulated play. Use your uploaded ElevenLabs file for the actual guide.)" 
+                      : "Find a comfortable position. Just arrive. Let your weight settle."
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <h3 className="text-xl font-serif border-b border-stone-200 pb-2">Audio Reflection Questions</h3>
+                <div className="space-y-6">
+                  {[
+                    { key: 'audioQ1', label: "What was the first thought your inner voice offered when you brought up your uncertain situation?" },
+                    { key: 'audioQ2', label: "When you placed your hand on your chest, what did you notice in your body? Did anything shift?" },
+                    { key: 'audioQ3', label: "What scarcity script do you think was running during this practice?" },
+                    { key: 'audioQ4', label: "What would it mean for you to trust the Observer?" },
+                    { key: 'audioQ5', label: "What is one small thing you are choosing to notice this week, without trying to fix it?" },
+                  ].map((q, i) => (
+                    <div key={i} className="space-y-2">
+                      <label className="block text-sm font-medium text-stone-700">{q.label}</label>
+                      <textarea 
+                        className="w-full bg-white border border-stone-200 rounded-xl p-4 min-h-[80px] focus:ring-2 focus:ring-stone-400 outline-none"
+                        value={formData[q.key]}
+                        onChange={(e) => handleInputChange(q.key, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* REFLECTION TAB */}
+          {activeTab === 'reflection' && (
+            <div className="space-y-12 animate-in fade-in duration-500">
+              <section className="space-y-8">
+                <div className="bg-stone-50 p-8 rounded-3xl border border-stone-200">
+                  <h2 className="text-2xl font-serif mb-6 flex items-center gap-2">
+                    <MessageCircle className="text-stone-400" />
+                    Emotional Landscape
+                  </h2>
+                  <p className="text-stone-500 mb-6">Select the emotions you've noticed surfacing this week during your reflections.</p>
+                  <div className="flex flex-wrap gap-3">
+                    {emotionTags.map(emotion => (
+                      <button
+                        key={emotion}
+                        onClick={() => toggleEmotion(emotion)}
+                        className={`px-6 py-2 rounded-full border text-sm transition-all ${
+                          formData.emotions.includes(emotion)
+                            ? 'bg-stone-900 border-stone-900 text-white shadow-md'
+                            : 'bg-white border-stone-200 text-stone-500 hover:border-stone-400'
+                        }`}
+                      >
+                        {emotion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <h3 className="text-xl font-serif border-b border-stone-200 pb-2">Week 1 Intention Setting</h3>
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm italic text-stone-600">"This week, I am simply willing to notice..."</label>
+                      <input 
+                        className="w-full bg-stone-50 border-b-2 border-stone-200 p-3 focus:border-stone-900 outline-none transition-all"
+                        value={formData.intentionNotice}
+                        onChange={(e) => handleInputChange('intentionNotice', e.target.value)}
+                        placeholder="..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm italic text-stone-600">"I commit to observing without judgment when..."</label>
+                      <input 
+                        className="w-full bg-stone-50 border-b-2 border-stone-200 p-3 focus:border-stone-900 outline-none transition-all"
+                        value={formData.intentionCommit}
+                        onChange={(e) => handleInputChange('intentionCommit', e.target.value)}
+                        placeholder="..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <div className="bg-rose-50 p-10 rounded-3xl text-center space-y-6 border border-rose-100">
+                <h2 className="text-3xl font-serif text-stone-900">Workbook Complete</h2>
+                <p className="text-stone-600 max-w-lg mx-auto">
+                  Click below for your final Week 1 summary PDF.
+                </p>
+                <button 
+                  onClick={generatePDF}
+                  disabled={!scriptsLoaded}
+                  className="inline-flex items-center gap-3 px-10 py-4 bg-stone-900 text-white rounded-full text-lg font-medium hover:bg-stone-800 transition-all hover:scale-105 shadow-xl disabled:opacity-50"
+                >
+                  <Download size={24} />
+                  Final Workbook PDF
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* Footer */}
+        <footer className="p-8 bg-stone-50 border-t border-stone-200 text-center">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-stone-400 text-sm tracking-widest uppercase">
+              Recognize • Shift • Thrive
+            </p>
+            <p className="text-stone-400 text-xs italic flex items-center gap-1">
+              <Save size={12} /> Progress is local. Download frequently to save.
+            </p>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+export default App;
